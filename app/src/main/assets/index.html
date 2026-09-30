@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Object Maker</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
+            --text-color: #f0f0f0;
+            --border-color: #444;
+            --accent-color: #3DDC84;
+            --accent-hover: #2ba462;
+            --btn-bg: #3c3c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* 3D Viewport container */
+        #viewport {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 250px;
+            bottom: 0;
+            background: #111;
+        }
+
+        /* Top Menu Bar */
+        #toolbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .tool-btn {
+            background-color: var(--btn-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .tool-btn:hover {
+            background-color: #4c4c4c;
+        }
+        
+        .tool-btn:active {
+            background-color: var(--accent-hover);
+        }
+
+        .tool-btn.active {
+            background-color: var(--accent-color);
+            color: #000;
+            border-color: var(--accent-color);
+        }
+
+        /* Side Panel */
+        #sidepanel {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            width: 250px;
+            bottom: 0;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .panel-header {
+            padding: 15px;
+            font-weight: bold;
+            font-size: 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: #252525;
+        }
+
+        .panel-content {
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .prop-group {
+            margin-bottom: 15px;
+        }
+
+        .prop-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .prop-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .prop-row input[type="number"], .prop-row input[type="text"] {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        /* Toggle Switches */
+        .toggle-container {
+            display: flex;
+            background: #1e1e1e;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 6px 0;
+            text-align: center;
+            font-size: 13px;
+            cursor: pointer;
+            background: transparent;
+            color: #888;
+        }
+
+        .toggle-btn.selected {
+            background: var(--btn-bg);
+            color: white;
+            font-weight: bold;
+        }
+        
+        .toggle-btn.solid.selected {
+            background: #4285F4;
+        }
+        
+        .toggle-btn.hole.selected {
+            background: repeating-linear-gradient(
+                45deg,
+                #666,
+                #666 5px,
+                #444 5px,
+                #444 10px
+            );
+        }
+
+        /* View Cube Widget Container */
+        #viewcube {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            width: 100px;
+            height: 100px;
+            pointer-events: none; /* Let Three.js handle clicks if implemented in canvas, or overlay HTML */
+            z-index: 5;
+        }
+
+        /* Add shape buttons */
+        .shape-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .shape-btn {
+            background: var(--btn-bg);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 10px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .shape-btn:hover { background: #444; }
+
+        /* Measurement overlay */
+        #measurement-overlay {
+            position: absolute;
+            pointer-events: none;
+            color: #3DDC84;
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <button class="tool-btn" id="btn-import">📥 Import STL/OBJ</button>
+        <button class="tool-btn" id="btn-export">📤 Export</button>
+        <div style="width: 1px; height: 30px; background: var(--border-color); margin: 0 5px;"></div>
+        <button class="tool-btn" id="btn-undo">↶ Undo</button>
+        <button class="tool-btn" id="btn-redo">↷ Redo</button>
+        <div style="width: 1px; height: 30px; background: var(--border-color); margin: 0 5px;"></div>
+        <button class="tool-btn" id="btn-group">🔗 Group</button>
+        <button class="tool-btn" id="btn-ungroup">⛓️ Ungroup</button>
+        <button class="tool-btn" id="btn-align">📏 Align</button>
+        <button class="tool-btn" id="btn-workplane">📐 Workplane</button>
+        <div style="flex: 1;"></div>
+        <button class="tool-btn" id="btn-delete" style="color: #ff5252;">🗑️ Delete</button>
+    </div>
+
+    <div id="viewport"></div>
+    <div id="viewcube"></div>
+    <div id="measurement-overlay"></div>
+
+    <div id="sidepanel">
+        <div class="panel-header" id="panel-title">Workspace</div>
+        <div class="panel-content">
+            
+            <!-- Shapes Panel -->
+            <div id="panel-shapes">
+                <div class="prop-group">
+                    <label>Basic Shapes</label>
+                    <div class="shape-grid">
+                        <button class="shape-btn" data-shape="box">Box</button>
+                        <button class="shape-btn" data-shape="cylinder">Cylinder</button>
+                        <button class="shape-btn" data-shape="sphere">Sphere</button>
+                        <button class="shape-btn" data-shape="cone">Cone</button>
+                        <button class="shape-btn" data-shape="text">Text</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Properties Panel (Hidden by default) -->
+            <div id="panel-properties" style="display: none;">
+                
+                <div class="prop-group">
+                    <label>Type</label>
+                    <div class="toggle-container">
+                        <div class="toggle-btn solid selected" id="toggle-solid">Solid</div>
+                        <div class="toggle-btn hole" id="toggle-hole">Hole</div>
+                    </div>
+                </div>
+
+                <div class="prop-group" id="color-group">
+                    <label>Color</label>
+                    <input type="color" id="obj-color" value="#4285F4" style="width: 100%; height: 30px; border: none; background: transparent; cursor: pointer;">
+                    <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
+                        <input type="checkbox" id="obj-multicolor">
+                        <label style="margin: 0;">Multicolor (Group)</label>
+                    </div>
+                </div>
+
+                <div class="prop-group">
+                    <label>Dimensions (mm)</label>
+                    <div class="prop-row">
+                        <span style="color:#ff5555; width:15px;">X</span>
+                        <input type="number" id="dim-x" step="0.1">
+                    </div>
+                    <div class="prop-row">
+                        <span style="color:#55ff55; width:15px;">Y</span>
+                        <input type="number" id="dim-y" step="0.1" title="Vertical Height">
+                    </div>
+                    <div class="prop-row">
+                        <span style="color:#5555ff; width:15px;">Z</span>
+                        <input type="number" id="dim-z" step="0.1" title="Horizontal Depth">
+                    </div>
+                </div>
+
+                <div class="prop-group">
+                    <label>Position</label>
+                    <div class="prop-row">
+                        <span style="color:#ff5555; width:15px;">X</span>
+                        <input type="number" id="pos-x" step="0.1">
+                    </div>
+                    <div class="prop-row">
+                        <span style="color:#55ff55; width:15px;">Y</span>
+                        <input type="number" id="pos-y" step="0.1">
+                    </div>
+                    <div class="prop-row">
+                        <span style="color:#5555ff; width:15px;">Z</span>
+                        <input type="number" id="pos-z" step="0.1">
+                    </div>
+                </div>
+
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Main JS Application Bundle -->
+    <script src="bundle.js"></script>
+</body>
+</html>
